@@ -1,0 +1,10 @@
+model:
+  biencoder_model: models/biencoder_wiki_large.bin
+  biencoder_config: models/biencoder_wiki_large.json
+  crossencoder_model: models/crossencoder_wiki_large.bin
+  crossencoder_config: models/crossencoder_wiki_large.json
+
+logging:
+  output_path: logs/
+
+fast: False

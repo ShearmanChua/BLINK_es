@@ -1,0 +1,26 @@
+version: '3.5'
+
+# To Join any other app setup using another network, change name and set external = true
+networks:
+  default:
+    name: multimodal
+    external: true
+
+services:
+  blink:
+    build: ./
+    stdin_open: true
+    tty: true
+    command: "/bin/bash"
+    volumes:
+        - ${PWD}/BLINK_api/models:/BLINK_api/models
+        - ${PWD}/BLINK_api/logs:/BLINK_api/logs
+        - ${PWD}/BLINK_api/configs:/BLINK_api/configs
+        - ${PWD}/BLINK_api/src:/BLINK_api/src
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

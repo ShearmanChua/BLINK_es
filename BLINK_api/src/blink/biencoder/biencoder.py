@@ -163,7 +163,9 @@ class BiEncoderRanker(torch.nn.Module):
         # Candidate encoding is given, do not need to re-compute
         # Directly return the score of context encoding and candidate encoding
         if cand_encs is not None:
-            return embedding_ctxt.mm(cand_encs.t())
+            print('Bi-encoder score: ', embedding_ctxt.mm(cand_encs.t()))
+            print("mention encoding: ", embedding_ctxt.shape)
+            return embedding_ctxt.mm(cand_encs.t()), embedding_ctxt
 
         # Train time. We compare with all elements of the batch
         token_idx_cands, segment_idx_cands, mask_cands = to_bert_input(
@@ -182,6 +184,17 @@ class BiEncoderRanker(torch.nn.Module):
             scores = torch.bmm(embedding_ctxt, embedding_cands)  # batchsize x 1 x 1
             scores = torch.squeeze(scores)
             return scores
+
+    def encode_batch(self, text_vecs):
+         # Encode contexts first
+        token_idx_ctxt, segment_idx_ctxt, mask_ctxt = to_bert_input(
+            text_vecs, self.NULL_IDX
+        )
+        embedding_ctxt, _ = self.model(
+            token_idx_ctxt, segment_idx_ctxt, mask_ctxt, None, None, None
+        )
+
+        return embedding_ctxt
 
     # label_input -- negatives provided
     # If label_input is None, train on in-batch negatives

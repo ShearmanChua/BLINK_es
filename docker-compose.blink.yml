@@ -11,12 +11,20 @@ services:
     build: ./
     stdin_open: true
     tty: true
-    command: "/bin/bash"
+    ports:
+      - 5050:5050
+    command: ["uvicorn", "api_service:app", "--host", "0.0.0.0", "--port", "5050"]
     volumes:
         - ${PWD}/BLINK_api/models:/BLINK_api/models
         - ${PWD}/BLINK_api/logs:/BLINK_api/logs
         - ${PWD}/BLINK_api/configs:/BLINK_api/configs
         - ${PWD}/BLINK_api/src:/BLINK_api/src
+    environment:
+      NVIDIA_VISIBLE_DEVICES: 0
+      CUDA_VISIBLE_DEVICES: 0
+    ulimits:
+      memlock: -1
+    shm_size: '16gb'
     deploy:
       resources:
         reservations:

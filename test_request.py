@@ -3,6 +3,10 @@ import json
 from typing import List, Dict
 import pandas as pd
 import ast
+import re
+import time
+
+from haystack.document_stores import ElasticsearchDocumentStore
 
 def predict_jerex(dataset: Dict):
     response = requests.post('http://0.0.0.0:8080/df_link', json = dataset)
@@ -36,7 +40,7 @@ def predict_blink(dataset: Dict):
     print(df)
     print(df.info())
 
-    # df.to_csv("data/articles_entity_linked_exact.csv",index=False)
+    df.to_csv("data/articles_entity_linked.csv",index=False)
 
     return df
 
@@ -59,9 +63,11 @@ def generate_entity_linking_df(results_df):
                 print("Head Entity:")
                 print(head_entity)
                 left_context = " ".join(tokens[relation['head_span'][0]-100:relation['head_span'][0]])
+                left_context = re.sub(r"\S*https?:\S*", '', left_context)
                 print("Left context: ",left_context)
                 print("\n")
                 right_context = " ".join(tokens[relation['head_span'][1]:relation['head_span'][1]+100])
+                right_context = re.sub(r"\S*https?:\S*", '', right_context)
                 print("Right context: ",right_context)
                 print("\n")
                 entities_linking_df.loc[-1] = [doc_id, head_entity, relation['head_type'], left_context, right_context]  # adding a row
@@ -74,9 +80,11 @@ def generate_entity_linking_df(results_df):
                 print("Tail Entity:")
                 print(tail_entity)
                 left_context = " ".join(tokens[relation['tail_span'][0]-100:relation['tail_span'][0]])
+                left_context = re.sub(r"\S*https?:\S*", '', left_context)
                 print("Left context: ",left_context)
                 print("\n")
                 right_context = " ".join(tokens[relation['tail_span'][1]:relation['tail_span'][1]+100])
+                right_context = re.sub(r"\S*https?:\S*", '', right_context)
                 print("Right context: ",right_context)
                 print("\n")
                 entities_linking_df.loc[-1] = [doc_id, tail_entity, relation['tail_type'], left_context, right_context]  # adding a row
@@ -89,43 +97,86 @@ def generate_entity_linking_df(results_df):
 
 
 if __name__ == '__main__':
-    # dataset = {"sentence":"Apple computers"}
-    # dataset = {
-    #             "context_left": "Who manufactured the".lower(),
-    #             "mention": "Oerlikon cannon",
-    #             "context_right": "".lower(),
-    #           }
-    # dataset = {
-    #         "text": '''Kimi Raikkonen said on Thursday he was looking forward to retirement after 19 seasons and 349 races in Formula One and would be less emotional about it than his wife Minttu.
-    #         Ferrari's 2007 world champion, now driving for Alfa Romeo, has one more race in Abu Dhabi on Sunday before he calls it quits at the age of 42.
-    #         "I'm looking forward to get the season done," the Finnish 'Iceman', who made his Formula One debut in 2001, told reporters at Yas Marina.
-    #         "It's nice that it comes to an end and I'm looking forward to the normal life after.
-    #         "I think for sure my wife will be more emotional about it," added the poker-faced winner of 21 races.
-    #         "I doubt that the kids will really care either way, I think they will find other things to do that are more interesting. They like coming to a warm country and be in a pool and other things but it’s nice to have them here."
-    #         Raikkonen announced in September he would be retiring at the end of the season, with the Swiss-based team signing compatriot Valtteri Bottas as his replacement from Mercedes.
-    #         Alfa Romeo will be marking his final race with a special livery tribute on the side of his car declaring "Dear Kimi, we will leave you alone now".
-    #         Raikkonen famously uttered the phrase "Just leave me alone, I know what I'm doing" over the radio while heading to victory in Abu Dhabi with Lotus in 2012, a comment that spawned a range of merchandise and social media memes.
-    #         Ever popular with the fans, the Finn said he was looking forward to life without a rigid schedule.
-    #         "Right now I’m not looking at anything apart from finishing the year," he said.
-    #         "We’ll see if there’s some interesting things that comes out, if it makes sense maybe I’ll do it, but I have zero plans right now."'''
-    #     }
 
-    articles_df = pd.read_csv("data/articles_2.csv")
-    dataset = {"text": articles_df['text'].iloc[0]}
+    start = time.time()
 
-    # entity_linking_df = pd.read_csv("data/articles_entity_linking.csv")
+    document_store = ElasticsearchDocumentStore(host= "localhost",
+                                                port= "9200", 
+                                                username= "elastic", 
+                                                password= "changeme", 
+                                                scheme= "https", 
+                                                verify_certs= False, 
+                                                index = 'formula1_articles',
+                                                search_fields= ['content','title'])
 
-    df_json = articles_df.to_json(orient="records")
-    df_json = json.loads(df_json)
-    jerex_results = predict_jerex(df_json)
-    print("jerex results: ", jerex_results)
-    # jerex_results = predict_jerex(dataset)
+    documents = document_store.get_all_documents()
+
+    articles_df = pd.DataFrame(columns=['ID','title','text','elasticsearch_ID'])
+
+    for document in documents:
+        articles_df.loc[-1] = [document.meta['ID'], document.meta['link'],document.content,document.id]  # adding a row
+        articles_df.index = articles_df.index + 1  # shifting index
+        articles_df = articles_df.sort_index()  # sorting by index
+
+    print(articles_df.info())
+    print(articles_df.head())
+
+    # df_json = articles_df.to_json(orient="records")
+    # df_json = json.loads(df_json)
+    # jerex_results = predict_jerex(df_json)
+    # print("jerex results: ", jerex_results)
+
+    # jerex_results = pd.read_csv('data/test_jerex.csv')
 
     # entity_linking_df = generate_entity_linking_df(jerex_results)
 
     # print(entity_linking_df)
+    # entity_linking_df.to_csv("data/entity_linking_df.csv",index=False)
+    # entity_linking_df = pd.read_csv('/home/shearman/Desktop/work/BLINK_es/data/entity_linking_df.csv')
+    # entity_linking_df =entity_linking_df.iloc[:10,:]
+
 
     # df_json = entity_linking_df.to_json(orient="records")
     # df_json = json.loads(df_json)
 
     # blink_results = predict_blink(df_json)
+
+    df = pd.read_csv('data/articles_entity_linked.csv')
+
+    list_of_cluster_dfs = df.groupby('doc_id')
+
+    entities = []
+    ids = []
+
+    for group, cluster_df in list_of_cluster_dfs:
+        doc_entities = []
+        doc_id = cluster_df['doc_id'].tolist()[0]
+        mentions = cluster_df['mention'].tolist()
+        mentions_type = cluster_df['mention_type'].tolist()
+        entity_links = cluster_df['entity_link'].tolist()
+        entity_names = cluster_df['entity_names'].tolist()
+        for idx in range(0,len(mentions)):
+            mention = dict()
+            mention['mention'] = mentions[idx]
+            mention['mention_type'] = mentions_type[idx]
+            mention['entity_link'] = entity_links[idx]
+            mention['entity_name'] = entity_names[idx]
+            doc_entities.append(mention)
+        ids.append(doc_id)
+        entities.append(doc_entities)
+
+    entities_df = pd.DataFrame()
+    entities_df['ID'] = ids
+    entities_df['identified_entities'] = entities
+
+    results_df = pd.merge(articles_df, entities_df, on=["ID"])
+
+    print(results_df.info())    
+
+    for idx, row in results_df.iterrows():
+        meta_dict = {'entities_identified':row['identified_entities']}
+        document_store.update_document_meta(id=row['elasticsearch_ID'], meta=meta_dict)
+
+    end = time.time()
+    print("Time to complete jerex and entity linking",end - start)
+

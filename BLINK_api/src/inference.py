@@ -322,9 +322,9 @@ def KBWrapper(cls):
 
         def generate_biencoder_token_ids(self,entities):
 
-            with open(self.args.biencoder_config) as json_file:
+            with open(self.args.model.biencoder_config) as json_file:
                 biencoder_params = json.load(json_file)
-                biencoder_params["path_to_model"] = self.args.biencoder_model
+                biencoder_params["path_to_model"] = self.args.model.biencoder_model
             biencoder = load_biencoder(biencoder_params)
 
             print(entities)
@@ -356,11 +356,11 @@ def KBWrapper(cls):
 
         def generate_candidates(self,biencoder_ids):
 
-            with open(self.args.biencoder_config) as json_file:
+            with open(self.args.model.biencoder_config) as json_file:
                 biencoder_params = json.load(json_file)
-                biencoder_params["path_to_model"] = self.args.biencoder_model
+                biencoder_params["path_to_model"] = self.args.model.biencoder_model
             
-            biencoder_params["entity_dict_path"] = self.args.entities_to_add
+            # biencoder_params["entity_dict_path"] = self.args.entities_to_add
             biencoder_params["data_parallel"] = True
             biencoder_params["no_cuda"] = False
             biencoder_params["max_context_length"] = 32
